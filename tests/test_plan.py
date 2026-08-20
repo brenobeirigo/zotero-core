@@ -166,3 +166,29 @@ def test_rerunning_after_a_stream_rename_creates_nothing(tmp_path):
     second = plan_import(load_bib_streams(renamed), "Project", backend=backend)
     assert second.counts[CREATE] == 0
     assert by_name  # the original collections are still what was created
+
+
+def test_project_collection_is_found_at_any_depth():
+    # Projects routinely live under a "Projects" parent rather than at the
+    # library root; requiring top level made every real import fail.
+    collections = [
+        CollectionRef(name="Projects", key="TOP"),
+        CollectionRef(name="Project", key="P", parent_key="TOP"),
+        CollectionRef(name="stream-one", key="S", parent_key="P"),
+    ]
+    snapshot = [LibraryItem(key="I1", doi="10.1287/trsc.2021.1234", collection_keys=("S",))]
+    plan = plan_import(works(), "Project", snapshot=snapshot, collections=collections)
+    assert plan.parent_key == "P"
+    row = next(r for r in plan.rows if r.citation_key == "doe2021routing")
+    assert row.action == ALREADY_PRESENT
+
+
+def test_two_collections_with_the_project_name_are_refused():
+    from zotero_core.errors import AmbiguousMatch
+
+    collections = [
+        CollectionRef(name="Project", key="P1"),
+        CollectionRef(name="Project", key="P2", parent_key="TOP"),
+    ]
+    with pytest.raises(AmbiguousMatch, match="2 collections are named"):
+        plan_import(works(), "Project", snapshot=[], collections=collections)

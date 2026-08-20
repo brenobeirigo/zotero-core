@@ -28,12 +28,22 @@ from .models import (
 def _collection_tree(
     collections: list[CollectionRef], parent_name: str
 ) -> tuple[CollectionRef | None, set[str], dict[str, CollectionRef]]:
-    """Return the project collection, its descendant keys, and its children by name."""
-    parent = next(
-        (c for c in collections if c.name == parent_name and c.parent_key is None), None
-    )
-    if parent is None or parent.key is None:
+    """Return the project collection, its descendant keys, and its children by name.
+
+    The project is matched by name at any depth -- projects routinely live
+    under a "Projects" parent rather than at the library root. Two collections
+    sharing the name is refused rather than resolved: picking the first is how
+    an import lands in the wrong project.
+    """
+    named = [c for c in collections if c.name == parent_name and c.key is not None]
+    if len(named) > 1:
+        raise AmbiguousMatch(
+            f"{len(named)} collections are named {parent_name!r} "
+            f"({', '.join(c.key for c in named)}); rename one or pass the one you mean"
+        )
+    if not named:
         return None, set(), {}
+    parent = named[0]
 
     descendants: set[str] = set()
     frontier = [parent.key]
