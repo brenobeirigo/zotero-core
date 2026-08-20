@@ -75,3 +75,21 @@ def test_wire_shape_keeps_the_bridge_field_names():
         "citationKey", "stream", "itemType", "title", "year", "doi",
         "matchCreator", "fields", "creators",
     }
+
+
+def test_stream_order_puts_the_argument_first():
+    # A paper's streams run in the order its argument runs, which is not
+    # alphabetical. Unnamed stems follow, sorted.
+    works = load_bib_streams(CORPUS, stream_order=["stream-one"])
+    streams = list(dict.fromkeys(work.stream for work in works))
+    assert streams == ["stream-one", "edge-cases"]
+
+
+def test_stream_order_may_name_a_file_that_does_not_exist_yet():
+    works = load_bib_streams(CORPUS, stream_order=["not-written-yet", "stream-one"])
+    assert list(dict.fromkeys(w.stream for w in works)) == ["stream-one", "edge-cases"]
+
+
+def test_default_order_is_alphabetical():
+    works = load_bib_streams(CORPUS)
+    assert list(dict.fromkeys(w.stream for w in works)) == ["edge-cases", "stream-one"]

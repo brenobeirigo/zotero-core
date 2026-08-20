@@ -47,13 +47,26 @@ def load_bib_streams(
     include_uncited: bool = False,
     strict_types: bool = False,
     skip_stems: tuple[str, ...] = DEFAULT_SKIP_STEMS,
+    stream_order: list[str] | None = None,
 ) -> list[Work]:
+    """Load every stream file in the directory.
+
+    ``stream_order`` names stems to read first, in that order -- the order a
+    paper's argument runs in, which is not alphabetical. Stems it does not
+    name follow, sorted. Naming a stem that does not exist is not an error;
+    the paper's outline can run ahead of its bibliography.
+    """
     directory = Path(bib_dir).expanduser().resolve()
     if not directory.is_dir():
         raise ValueError(f"Not a directory: {directory}")
     files = sorted(directory.glob("*.bib"))
     if not include_uncited:
         files = [path for path in files if path.stem not in skip_stems]
+    if stream_order:
+        by_stem = {path.stem: path for path in files}
+        ordered = [by_stem[stem] for stem in stream_order if stem in by_stem]
+        ordered += [path for path in files if path not in ordered]
+        files = ordered
     if not files:
         raise ValueError(f"No .bib files found in {directory}")
 
