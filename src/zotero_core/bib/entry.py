@@ -27,7 +27,6 @@ def entry_to_work(entry: dict, stream: str = "", *, strict_types: bool = False) 
         "DOI": clean(entry.get("doi")),
         "url": clean(entry.get("url")),
         "volume": clean(entry.get("volume")),
-        "issue": clean(entry.get("number")),
         "pages": clean(entry.get("pages")).replace("--", "-"),
         "publisher": clean(entry.get("publisher")),
         "place": clean(entry.get("address")),
@@ -40,6 +39,9 @@ def entry_to_work(entry: dict, stream: str = "", *, strict_types: bool = False) 
         fields["publicationTitle"] = clean(entry.get("journal")) or clean(
             entry.get("journaltitle")
         )
+        # `number` is the issue here and the report number below, so it is
+        # resolved per item type rather than in the shared block.
+        fields["issue"] = clean(entry.get("number"))
     elif item_type == "bookSection":
         fields["bookTitle"] = clean(entry.get("booktitle"))
     elif item_type == "conferencePaper":
