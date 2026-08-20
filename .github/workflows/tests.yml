@@ -1,0 +1,47 @@
+name: tests
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+
+jobs:
+  tests:
+    runs-on: ${{ matrix.os }}
+    strategy:
+      fail-fast: false
+      matrix:
+        os: [ubuntu-latest, windows-latest]
+        python-version: ["3.10", "3.11", "3.12"]
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: ${{ matrix.python-version }}
+      - run: python -m pip install --upgrade pip
+      - run: python -m pip install -e ".[dev,web]"
+      - run: python -m pytest -q
+
+  import-without-extras:
+    # The core must import on Linux with bibtexparser and nothing else. This
+    # is the job that catches an accidental pywinauto or pyzotero dependency
+    # creeping into a module that is imported unconditionally.
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.10"
+      - run: python -m pip install -e .
+      - run: |
+          python - <<'PY'
+          import zotero_core
+          import zotero_core.bib
+          import zotero_core.local
+          import zotero_core.plan
+          import zotero_core.backends
+          import zotero_core.backends.desktop
+          import zotero_core.backends.sqlite
+          import zotero_core.cli
+          print("core imports with base dependencies only:", zotero_core.__version__)
+          PY

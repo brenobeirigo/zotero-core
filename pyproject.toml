@@ -1,0 +1,56 @@
+[build-system]
+requires = ["setuptools>=68"]
+build-backend = "setuptools.build_meta"
+
+[project]
+name = "zotero-core"
+version = "0.1.0"
+description = "Shared Zotero library core: BibTeX identity, read-only local database access, and Web API / desktop-bridge backends."
+readme = "README.md"
+requires-python = ">=3.10"
+license = { text = "MIT" }
+authors = [{ name = "Breno Alves Beirigo" }]
+keywords = ["zotero", "bibtex", "bibliography", "reference-manager", "sqlite"]
+classifiers = [
+  "Development Status :: 3 - Alpha",
+  "Environment :: Console",
+  "Intended Audience :: Science/Research",
+  "License :: OSI Approved :: MIT License",
+  "Operating System :: OS Independent",
+  "Programming Language :: Python :: 3",
+  "Programming Language :: Python :: 3.10",
+  "Programming Language :: Python :: 3.11",
+  "Programming Language :: Python :: 3.12",
+  "Topic :: Scientific/Engineering :: Information Analysis",
+  "Typing :: Typed",
+]
+dependencies = ["bibtexparser>=1.4,<2"]
+
+[project.optional-dependencies]
+web = ["pyzotero>=1.5"]
+# Deliberately empty. The desktop backend speaks stdlib urllib to Zotero on
+# localhost; its real prerequisite is the out-of-band Zotero CLI Bridge, which
+# is not distributed. See docs/backends.md.
+desktop = []
+all = ["zotero-core[web]"]
+dev = ["pytest>=8.0.0", "build>=1.2.0"]
+
+[project.urls]
+Homepage = "https://github.com/brenobeirigo/zotero-core"
+Repository = "https://github.com/brenobeirigo/zotero-core"
+Issues = "https://github.com/brenobeirigo/zotero-core/issues"
+
+[project.scripts]
+zotero-core = "zotero_core.cli:main"
+
+[tool.setuptools]
+package-dir = { "" = "src" }
+
+[tool.setuptools.package-data]
+zotero_core = ["py.typed"]
+
+[tool.setuptools.packages.find]
+where = ["src"]
+
+[tool.pytest.ini_options]
+testpaths = ["tests"]
