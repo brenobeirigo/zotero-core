@@ -25,10 +25,21 @@ _FIELD_MAP = {
     "url": "url",
     "extra": "extra",
     "abstractNote": "abstract",
-    "publicationTitle": "venue",
-    "proceedingsTitle": "venue",
-    "conferenceName": "venue",
+    "publicationTitle": "publication_title",
+    "proceedingsTitle": "proceedings_title",
+    "conferenceName": "conference_name",
 }
+
+#: Where a venue name comes from, by item type. Folding the three source
+#: fields into one column at read time made the answer depend on SQLite row
+#: order, which is how one item could report two different venues on two
+#: runs. Item type decides instead: a conference paper keeps its proceedings
+#: title even when a stray publicationTitle survives from an earlier item
+#: type, which is common in libraries that have been re-typed by hand.
+VENUE_PRECEDENCE = {
+    "conferencePaper": ("proceedings_title", "conference_name", "publication_title"),
+}
+DEFAULT_VENUE_PRECEDENCE = ("publication_title", "proceedings_title", "conference_name")
 
 
 @dataclass
@@ -54,10 +65,21 @@ class LocalItem:
     url: str = ""
     extra: str = ""
     abstract: str = ""
-    venue: str = ""
+    publication_title: str = ""
+    proceedings_title: str = ""
+    conference_name: str = ""
     authors: list[str] = field(default_factory=list)
     tags: list[str] = field(default_factory=list)
     attachments: list[LocalAttachment] = field(default_factory=list)
+
+    @property
+    def venue(self) -> str:
+        order = VENUE_PRECEDENCE.get(self.item_type, DEFAULT_VENUE_PRECEDENCE)
+        for attribute in order:
+            value = getattr(self, attribute)
+            if value:
+                return value
+        return ""
 
     @property
     def year(self) -> str:

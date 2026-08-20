@@ -90,3 +90,36 @@ def test_snapshot_from_sqlite_carries_collection_membership(zotero_db):
     article = next(item for item in items if item.key == "AAAA1111")
     assert article.collection_keys == ("COLL0002",)
     assert {c.name for c in collections} == {"Project", "stream-one"}
+
+
+def test_venue_follows_the_item_type_not_sqlite_row_order(zotero_db):
+    """A conference paper reports its proceedings title, not the event name.
+
+    Reading the three venue fields into one column let SQLite row order pick
+    the winner, so the same item could report two different venues on two
+    runs. One real library item has proceedingsTitle "Computer Science in
+    Cars Symposium" and conferenceName "CSCS '20: Computer Science in Cars
+    Symposium"; the accident used to return the second.
+    """
+    from zotero_core.local.items import LocalItem
+
+    paper = LocalItem(
+        item_id=1,
+        key="K",
+        item_type="conferencePaper",
+        proceedings_title="Computer Science in Cars Symposium",
+        conference_name="CSCS '20: Computer Science in Cars Symposium",
+        publication_title="A Stale Journal Name",
+    )
+    assert paper.venue == "Computer Science in Cars Symposium"
+
+    article = LocalItem(
+        item_id=2,
+        key="K2",
+        item_type="journalArticle",
+        publication_title="Transportation Science",
+        proceedings_title="A Stale Proceedings Name",
+    )
+    assert article.venue == "Transportation Science"
+
+    assert LocalItem(item_id=3, key="K3", item_type="book").venue == ""
