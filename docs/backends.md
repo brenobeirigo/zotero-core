@@ -25,17 +25,23 @@ There is **no default library id**. `--library-id`, then `ZOTERO_USER_ID`,
 then a hard error naming where to find yours. A built-in default means
 somebody else's install silently writes at the author's library.
 
-## The Zotero CLI Bridge is not distributed
+## The Zotero CLI Bridge is a third-party plugin
 
 The desktop backend writes through `POST http://127.0.0.1:23119/cli-bridge/eval`,
-an endpoint that **stock Zotero does not provide**. It comes from a companion
-Zotero plugin that is installed in the author's environment and is not shipped
-from any repository. `zotero-connector-cli`'s `TODO.md` owns that release
-blocker; this file only records the consequence.
+an endpoint that **stock Zotero does not provide**. It comes from the
+`cli-bridge@cli-anything.dev` plugin, distributed inside the PyPI package
+`cli-anything-zotero` and deliberately not vendored here.
+[`cli-bridge.md`](cli-bridge.md) covers installation, the manual upgrade path,
+the tested version range, and what the endpoint permits — read it before
+installing, because the endpoint evaluates arbitrary privileged JavaScript for
+any local caller.
 
-The consequence is that on a machine without the bridge, every desktop *write*
-is unavailable. Reads via `backends/sqlite.py` still work, and planning still
-works.
+The consequence for this package is that on a machine without the bridge,
+every desktop *write* is unavailable. Reads via `backends/sqlite.py` still
+work, and planning still works.
+
+`backends.desktop.bridge_info()` reports which plugin is answering and whether
+its version is one this package has been tested against.
 
 So the two failures are told apart deliberately:
 

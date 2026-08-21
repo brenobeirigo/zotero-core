@@ -1,10 +1,11 @@
 """The Zotero Desktop backend, via the Zotero CLI Bridge.
 
-The bridge is an out-of-band component that is **not distributed** with this
-package; see ``docs/backends.md``. When it is missing, this module says so in
-those words rather than reporting a connection problem -- Zotero answering on
-the port and the bridge being installed are different facts with different
-remedies, and conflating them is the most confusing failure this tooling has.
+The bridge is a third-party Zotero plugin, not part of this package and not
+ours to ship; ``docs/cli-bridge.md`` says where it comes from and how to
+install it. When it is missing, this module says so in those words rather than
+reporting a connection problem -- Zotero answering on the port and the bridge
+being installed are different facts with different remedies, and conflating
+them is the most confusing failure this tooling has.
 """
 
 from __future__ import annotations
@@ -20,6 +21,23 @@ from ..plan.models import CollectionRef
 CONNECTOR_BASE = "http://127.0.0.1:23119"
 BRIDGE_PATH = "/cli-bridge/eval"
 USER_AGENT = "zotero-core/0.1"
+
+#: The plugin that provides :data:`BRIDGE_PATH`. Pinned by id so that an
+#: endpoint answering under some other plugin's name is reported rather than
+#: assumed to behave the same way.
+BRIDGE_ADDON_ID = "cli-bridge@cli-anything.dev"
+
+#: Where that plugin comes from. It is distributed inside the PyPI package
+#: ``cli-anything-zotero``, which builds the .xpi and prints its path.
+BRIDGE_PACKAGE = "cli-anything-zotero"
+BRIDGE_HOMEPAGE = "https://github.com/PiaoyangGuohai1/cli-anything-zotero"
+
+#: The oldest bridge this package is known to work against. Bumped only after
+#: testing, never to match whatever happens to be installed.
+MIN_BRIDGE_VERSION = (1, 2, 0)
+
+#: The Zotero range the bridge's own manifest declares support for.
+SUPPORTED_ZOTERO_VERSIONS = (7, 9)
 
 # Copied verbatim from the connector's importer. Reading the DOI out of Extra
 # as well as the DOI field is not optional: DOIs stashed in Extra are routine
@@ -266,6 +284,140 @@ def bridge_ping() -> dict:
         "return {version: Zotero.version, libraryID: Zotero.Libraries.userLibraryID};",
         timeout=10,
     )
+
+
+# Asking the plugin about itself, rather than inferring it from "the endpoint
+# answered". A stale bridge answers exactly like a current one right up to the
+# call that needs the behavior it does not have.
+_BRIDGE_INFO_JS = r"""
+let addon = null;
+let addonQueryError = null;
+try {
+    const { AddonManager } = ChromeUtils.importESModule(
+        "resource://gre/modules/AddonManager.sys.mjs"
+    );
+    const found = await AddonManager.getAddonByID(addonID);
+    if (found) {
+        addon = {
+            id: found.id,
+            name: found.name || "",
+            version: found.version || "",
+            active: !!found.isActive,
+            updateURL: found.updateURL || null,
+        };
+    }
+} catch (e) {
+    // "The add-on manager could not be reached" and "no such add-on" are
+    // different answers. Reporting them as one would turn an unverifiable
+    // environment into a confident accusation that the bridge is missing.
+    addon = null;
+    addonQueryError = (e && (e.message || String(e))) || "unknown error";
+}
+return {
+    zoteroVersion: Zotero.version,
+    platform: Zotero.platform || "",
+    libraryID: Zotero.Libraries.userLibraryID,
+    endpointRegistered: Object.prototype.hasOwnProperty.call(
+        Zotero.Server.Endpoints, endpointPath
+    ),
+    addon: addon,
+    addonQueryError: addonQueryError,
+};
+"""
+
+
+def _version_tuple(value: str) -> tuple[int, ...]:
+    """Leading numeric components only. '1.2.0-beta.3' sorts as (1, 2, 0)."""
+    parts: list[int] = []
+    for chunk in str(value).split("."):
+        digits = ""
+        for character in chunk:
+            if not character.isdigit():
+                break
+            digits += character
+        if digits:
+            parts.append(int(digits))
+        # A chunk that is not purely numeric ends the version. Anything after
+        # it is pre-release noise, and reading '1.2.0-beta.3' as (1, 2, 0, 3)
+        # would rank a beta *above* the release it precedes.
+        if digits != chunk:
+            break
+    return tuple(parts)
+
+
+def describe_bridge(payload: dict) -> dict:
+    """Turn a raw bridge report into a verdict, with the reasons spelled out.
+
+    Kept separate from the call that fetches it so the judgement is testable
+    without a running Zotero -- which is the whole difficulty with this
+    component.
+    """
+    addon = payload.get("addon") or None
+    problems: list[str] = []
+
+    zotero_version = str(payload.get("zoteroVersion") or "")
+    zotero_major = _version_tuple(zotero_version)[:1]
+    low, high = SUPPORTED_ZOTERO_VERSIONS
+    if zotero_major and not (low <= zotero_major[0] <= high):
+        problems.append(
+            f"Zotero {zotero_version} is outside the {low}.x-{high}.x range the "
+            "bridge plugin declares support for"
+        )
+
+    if not payload.get("endpointRegistered"):
+        problems.append(
+            f"{BRIDGE_PATH} is not registered; the bridge plugin is absent or disabled"
+        )
+
+    bridge_version = ""
+    query_error = payload.get("addonQueryError") or ""
+    if addon is None and query_error:
+        # Not the same as "the plugin is missing". We could not ask, so the
+        # version is unknown and this says exactly that.
+        problems.append(
+            f"could not read the plugin's version from Zotero's add-on manager "
+            f"({query_error}); the bridge may still be fine, but it is unverified"
+        )
+    elif addon is None:
+        problems.append(
+            "the bridge endpoint answered but no plugin reported itself under "
+            f"{BRIDGE_ADDON_ID}; something else is serving {BRIDGE_PATH}"
+        )
+    else:
+        bridge_version = str(addon.get("version") or "")
+        if not addon.get("active"):
+            problems.append(f"the {BRIDGE_ADDON_ID} plugin is installed but not active")
+        if bridge_version and _version_tuple(bridge_version) < MIN_BRIDGE_VERSION:
+            expected = ".".join(str(part) for part in MIN_BRIDGE_VERSION)
+            problems.append(
+                f"bridge plugin {bridge_version} is older than the tested minimum "
+                f"{expected}; upgrade with `pip install -U {BRIDGE_PACKAGE}` then "
+                "`zotero-cli app install-plugin`"
+            )
+
+    return {
+        "ok": not problems,
+        "zoteroVersion": zotero_version,
+        "platform": payload.get("platform", ""),
+        "endpoint": BRIDGE_PATH,
+        "endpointRegistered": bool(payload.get("endpointRegistered")),
+        "addonID": BRIDGE_ADDON_ID,
+        "bridgeVersion": bridge_version,
+        "bridgeActive": bool(addon.get("active")) if addon else False,
+        "versionKnown": addon is not None,
+        "package": BRIDGE_PACKAGE,
+        "homepage": BRIDGE_HOMEPAGE,
+        "problems": problems,
+    }
+
+
+def bridge_info() -> dict:
+    """What the bridge is, and whether this package trusts this copy of it."""
+    payload = evaluate(
+        _const(addonID=BRIDGE_ADDON_ID, endpointPath=BRIDGE_PATH) + _BRIDGE_INFO_JS,
+        timeout=20,
+    )
+    return describe_bridge(payload)
 
 
 def sync_library() -> dict:
