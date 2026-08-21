@@ -23,9 +23,9 @@ installed. Nothing here needs Windows.
 ## Install
 
 ```powershell
-python -m pip install -e c:\dev\repos\app\zotero-core          # core only
-python -m pip install -e "c:\dev\repos\app\zotero-core[web]"   # + Web API
-python -m pip install -e "c:\dev\repos\app\zotero-core[dev]"   # + pytest
+python -m pip install -e c:\dev\repos\zotero\zotero-core          # core only
+python -m pip install -e "c:\dev\repos\zotero\zotero-core[web]"   # + Web API
+python -m pip install -e "c:\dev\repos\zotero\zotero-core[dev]"   # + pytest
 ```
 
 ## Usage
