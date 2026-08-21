@@ -313,9 +313,22 @@ try {
     addon = null;
     addonQueryError = (e && (e.message || String(e))) || "unknown error";
 }
+// Zotero.platform does not exist in Zotero 9; it read as undefined and this
+// field was always empty. Services.appinfo.OS is what actually answers.
+let platform = "";
+try {
+    if (typeof Services !== "undefined" && Services.appinfo) {
+        platform = Services.appinfo.OS || "";
+    }
+} catch (e) {
+    platform = "";
+}
+if (!platform) {
+    platform = Zotero.isWin ? "WINNT" : Zotero.isMac ? "Darwin" : Zotero.isLinux ? "Linux" : "";
+}
 return {
     zoteroVersion: Zotero.version,
-    platform: Zotero.platform || "",
+    platform: platform,
     libraryID: Zotero.Libraries.userLibraryID,
     endpointRegistered: Object.prototype.hasOwnProperty.call(
         Zotero.Server.Endpoints, endpointPath
