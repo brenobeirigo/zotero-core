@@ -29,8 +29,8 @@ dependencies = ["bibtexparser>=1.4,<2"]
 [project.optional-dependencies]
 web = ["pyzotero>=1.5"]
 # Deliberately empty. The desktop backend speaks stdlib urllib to Zotero on
-# localhost; its real prerequisite is the out-of-band Zotero CLI Bridge, which
-# is not distributed. See docs/backends.md.
+# localhost; its real prerequisite is the Zotero CLI Bridge, a third-party
+# Zotero plugin that pip cannot install. See docs/cli-bridge.md.
 desktop = []
 all = ["zotero-core[web]"]
 dev = ["pytest>=8.0.0", "build>=1.2.0"]

@@ -6,3 +6,6 @@ __pycache__/
 build/
 dist/
 tmp/
+.audit/
+audit-requirements.txt
+RELEASE_BODY.md
