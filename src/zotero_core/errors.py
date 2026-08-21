@@ -33,6 +33,16 @@ class AmbiguousMatch(ZoteroCoreError):
     """One staged work matched more than one library item."""
 
 
+class MergeUnsupported(ZoteroCoreError):
+    """A backend cannot fold two existing items into one.
+
+    Merging is a client operation, not a storage one: it moves child items and
+    records that one key now stands for another. A route that can only create
+    and file items has to say so, rather than approximate a merge by deleting
+    the loser and losing its attachments with it.
+    """
+
+
 class UnsupportedEntryType(ZoteroCoreError):
     """A BibTeX entry type has no Zotero item type, and guessing is refused."""
 

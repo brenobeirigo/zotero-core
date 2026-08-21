@@ -29,3 +29,9 @@ class NullBackend:
 
     def add_to_collection(self, item_key: str, collection_key: str) -> None:
         raise NotImplementedError("NullBackend never writes; plan only")
+
+    def merge_items(self, master_key: str, other_keys: list[str]) -> None:
+        raise NotImplementedError("NullBackend never writes; plan only")
+
+    def trash_items(self, item_keys: list[str]) -> None:
+        raise NotImplementedError("NullBackend never writes; plan only")

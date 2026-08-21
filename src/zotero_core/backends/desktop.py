@@ -126,6 +126,97 @@ if (!collections.includes(collection.id)) {
 return true;
 """
 
+# Zotero's merge records the replacement relation, which is why this calls it
+# rather than deleting the losers outright. It does *not* reliably reparent
+# their child items: observed against Zotero 9.0.6, the attachments stayed on
+# the losing items and followed them into the trash. An attachment hanging off
+# a duplicate is routinely the only copy of that PDF, so this moves the
+# children across explicitly first and does not depend on merge to do it.
+# Collections are unioned onto the master for the same reason.
+#
+# Already-trashed children are left where they are: the person who trashed
+# them meant it, and a merge is no reason to resurrect them.
+_MERGE_ITEMS_JS = r"""
+const lib = Zotero.Libraries.userLibraryID;
+const master = Zotero.Items.getByLibraryAndKey(lib, masterKey);
+if (!master) throw new Error("Master item not found: " + masterKey);
+const others = [];
+for (const key of otherKeys) {
+    const item = Zotero.Items.getByLibraryAndKey(lib, key);
+    if (!item) throw new Error("Item not found: " + key);
+    if (item.id === master.id) throw new Error("Master listed among its own duplicates: " + key);
+    if (item.itemTypeID !== master.itemTypeID) {
+        throw new Error(
+            "Refusing to merge across item types: " + key + " is a "
+            + Zotero.ItemTypes.getName(item.itemTypeID) + ", master is a "
+            + Zotero.ItemTypes.getName(master.itemTypeID)
+        );
+    }
+    others.push(item);
+}
+const collections = new Set(master.getCollections());
+for (const item of others) {
+    for (const id of item.getCollections()) collections.add(id);
+}
+if (collections.size !== master.getCollections().length) {
+    master.setCollections([...collections]);
+    await master.saveTx();
+}
+const attachmentsBefore = master.getAttachments().length;
+const moved = [];
+await Zotero.DB.executeTransaction(async () => {
+    for (const item of others) {
+        const childIDs = [...item.getAttachments(), ...item.getNotes()];
+        for (const id of childIDs) {
+            const child = Zotero.Items.get(id);
+            child.parentItemID = master.id;
+            await child.save();
+            moved.push(child.key);
+        }
+    }
+});
+await Zotero.Items.merge(master, others);
+const refreshed = Zotero.Items.getByLibraryAndKey(lib, masterKey);
+const orphaned = [];
+for (const key of otherKeys) {
+    const loser = Zotero.Items.getByLibraryAndKey(lib, key);
+    if (loser) orphaned.push(...loser.getAttachments().map(id => Zotero.Items.get(id).key));
+}
+if (orphaned.length) {
+    throw new Error(
+        "Merge left " + orphaned.length + " attachment(s) on a trashed duplicate: "
+        + orphaned.join(", ")
+    );
+}
+if (shouldSync) await Zotero.Sync.Runner.sync({background: true});
+return {
+    masterKey: masterKey,
+    mergedKeys: otherKeys,
+    collections: refreshed.getCollections().length,
+    attachmentsBefore: attachmentsBefore,
+    attachmentsAfter: refreshed.getAttachments().length,
+    movedChildren: moved,
+};
+"""
+
+_TRASH_ITEMS_JS = r"""
+const lib = Zotero.Libraries.userLibraryID;
+const trashed = [];
+await Zotero.DB.executeTransaction(async () => {
+    for (const key of itemKeys) {
+        const item = Zotero.Items.getByLibraryAndKey(lib, key);
+        if (!item) throw new Error("Item not found: " + key);
+        if (!item.deleted) {
+            item.deleted = true;
+            await item.save();
+        }
+        trashed.push(item.key);
+    }
+});
+if (shouldSync) await Zotero.Sync.Runner.sync({background: true});
+return trashed;
+"""
+
 
 def _const(**values) -> str:
     """Bind script parameters as JS consts, JSON-encoded."""
@@ -221,6 +312,24 @@ class DesktopBridgeBackend:
         rows = [{"entry": work, "targetKey": target} for work, target in payloads]
         script = (
             _const(rows=rows, shouldSync=bool(self.sync_after_write)) + _CREATE_ITEMS_JS
+        )
+        return evaluate(script, timeout=self.timeout)
+
+    def merge_items(self, master_key: str, other_keys: list[str]) -> dict:
+        script = (
+            _const(
+                masterKey=master_key,
+                otherKeys=list(other_keys),
+                shouldSync=bool(self.sync_after_write),
+            )
+            + _MERGE_ITEMS_JS
+        )
+        return evaluate(script, timeout=self.timeout)
+
+    def trash_items(self, item_keys: list[str]) -> list[str]:
+        script = (
+            _const(itemKeys=list(item_keys), shouldSync=bool(self.sync_after_write))
+            + _TRASH_ITEMS_JS
         )
         return evaluate(script, timeout=self.timeout)
 

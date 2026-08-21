@@ -102,6 +102,8 @@ class FakeBackend:
         self._collections = list(collections or [])
         self.created: list[tuple[dict, str]] = []
         self.filed: list[tuple[str, str]] = []
+        self.merged: list[tuple[str, list[str]]] = []
+        self.trashed: list[str] = []
         self._next = 0
 
     def snapshot_library(self):
@@ -132,6 +134,12 @@ class FakeBackend:
 
     def add_to_collection(self, item_key, collection_key):
         self.filed.append((item_key, collection_key))
+
+    def merge_items(self, master_key, other_keys):
+        self.merged.append((master_key, list(other_keys)))
+
+    def trash_items(self, item_keys):
+        self.trashed.extend(item_keys)
 
 
 @pytest.fixture

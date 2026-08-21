@@ -85,6 +85,11 @@ print(plan.counts)
   deciding rule is a reported conflict, never an automatic merge.
 - **Planning** — decided in Python for every route, so the Web API and the
   desktop bridge cannot disagree about what an import would do.
+- **Repair** — `zotero_core.dedup` walks that same ladder over a library that
+  has already been imported into twice, groups the copies, and picks which one
+  should survive. Only DOI and citation-key groups are proposed for merging; a
+  title match is reported for a person to decide. Importing and repairing
+  therefore cannot disagree about what "the same work" means.
 - **Local access** — Zotero's data directory, a read-only connection that
   survives the app holding a lock, attachment path resolution.
 

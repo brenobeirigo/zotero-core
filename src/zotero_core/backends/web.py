@@ -11,7 +11,7 @@ from __future__ import annotations
 
 import os
 
-from ..errors import BackendUnavailable
+from ..errors import BackendUnavailable, MergeUnsupported
 from ..identity import LibraryItem, citation_key_from_extra, parse_year
 from ..plan.models import CollectionRef
 
@@ -126,6 +126,20 @@ class WebApiBackend:
         collections.append(collection_key)
         item["data"]["collections"] = collections
         self._zot.update_item(item)
+
+    def merge_items(self, master_key: str, other_keys: list[str]) -> None:
+        raise MergeUnsupported(
+            "The Zotero Web API has no merge operation: merging moves child "
+            "items and records a replacement relation, both of which are "
+            "client behavior. Run the merge through Zotero Desktop and the "
+            "CLI Bridge instead."
+        )
+
+    def trash_items(self, item_keys: list[str]) -> None:
+        for key in item_keys:
+            item = self._zot.item(key)
+            item["data"]["deleted"] = 1
+            self._zot.update_item(item)
 
     def _template(self, item_type: str) -> dict:
         if item_type not in self._templates:

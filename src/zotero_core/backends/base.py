@@ -31,3 +31,14 @@ class Backend(Protocol):
 
     def add_to_collection(self, item_key: str, collection_key: str) -> None:
         """File an existing item into a collection, leaving its other collections alone."""
+
+    def merge_items(self, master_key: str, other_keys: list[str]) -> None:
+        """Fold ``other_keys`` into ``master_key``, keeping every collection and child item.
+
+        Raise :class:`~zotero_core.errors.MergeUnsupported` when the route
+        cannot do this, rather than approximating it by deleting the losers
+        and losing their attachments with them.
+        """
+
+    def trash_items(self, item_keys: list[str]) -> None:
+        """Move items to the trash, which Zotero keeps until it is emptied."""
