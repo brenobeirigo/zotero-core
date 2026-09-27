@@ -37,7 +37,7 @@ BRIDGE_HOMEPAGE = "https://github.com/PiaoyangGuohai1/cli-anything-zotero"
 MIN_BRIDGE_VERSION = (1, 2, 0)
 
 #: The Zotero range the bridge's own manifest declares support for.
-SUPPORTED_ZOTERO_VERSIONS = (7, 9)
+SUPPORTED_ZOTERO_VERSIONS = (7, 10)
 
 # Copied verbatim from the connector's importer. Reading the DOI out of Extra
 # as well as the DOI field is not optional: DOIs stashed in Extra are routine

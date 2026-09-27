@@ -18,7 +18,7 @@ process do.
 | Distributed in | the PyPI package [`cli-anything-zotero`](https://pypi.org/project/cli-anything-zotero/) |
 | Source | <https://github.com/PiaoyangGuohai1/cli-anything-zotero> (`cli_anything/zotero/plugin/zotero-cli-bridge/`) |
 | Licence | Apache-2.0 |
-| Zotero range | 7.0 – 9.0.x (`strict_min_version` 6.999, `strict_max_version` 9.0.*) |
+| Zotero range | 7.0 – 10.0.x (`strict_min_version` 6.999, `strict_max_version` 10.0.*) |
 | Tested minimum here | 1.2.0 — `MIN_BRIDGE_VERSION` in `backends/desktop.py` |
 
 The plugin is roughly seventy lines. It registers one endpoint whose `init`

@@ -120,7 +120,7 @@ def test_the_tested_minimum_is_not_quietly_below_what_is_documented():
     assert MIN_BRIDGE_VERSION >= (1, 2, 0)
 
 
-@pytest.mark.parametrize("version", ["6.0.27", "10.0"])
+@pytest.mark.parametrize("version", ["6.0.27", "11.0"])
 def test_a_zotero_outside_the_plugins_declared_range_is_reported(version):
     verdict = describe_bridge(report(zoteroVersion=version))
 
@@ -128,7 +128,7 @@ def test_a_zotero_outside_the_plugins_declared_range_is_reported(version):
     assert any("outside the" in problem for problem in verdict["problems"])
 
 
-@pytest.mark.parametrize("version", ["7.0.9", "8.0.1", "9.0.6"])
+@pytest.mark.parametrize("version", ["7.0.9", "8.0.1", "9.0.6", "10.0.3"])
 def test_every_zotero_the_plugin_declares_is_accepted(version):
     assert describe_bridge(report(zoteroVersion=version))["ok"] is True
 
